@@ -1,0 +1,13 @@
+{
+    "name": "google-slides-asciinema",
+    "version": "1.0",
+    "description": "A tool to add asciinema to your Google Slides",
+    "content_scripts": [
+      {
+        "matches": ["https://docs.google.com/presentation/*"],
+        "js": ["index.js"],
+        "all_frames": true
+      }
+    ],
+    "manifest_version": 2
+  }

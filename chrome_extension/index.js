@@ -41,9 +41,9 @@ function addOverlay(el, asciinema_id) {
 
   var url = "https://asciinema.org/a/" + asciinema_id + "/embed";
   div.innerHTML =
-    '<iframe style="border:0;" src="' +
+    '<iframe style="border:0;" scrolling="yes" src="' +
     url +
-    '" width="100%" height="100%"></iframe>';
+    '" width="100%" height="95%"></iframe>';
 
   // Add a reference to the new div
   el._overlay_term = div;
