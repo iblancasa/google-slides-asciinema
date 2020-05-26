@@ -33,24 +33,24 @@ function addOverlay(el, asciinema_id) {
   div.style.width = (bbox.width / svg.viewBox.baseVal.width) * 100 + "%";
   div.style.height = (bbox.height / svg.viewBox.baseVal.height) * 100 + "%";
   div.style.position = "absolute";
-  // Add a boder
-  div.style.background = "rgba(253,246,227,.6)";
-  div.style.border = "7px solid #fdf6e3";
+  // Change the aspect
+  div.style.background = "rgba(0,0,0,0.6)";
   div.style.boxSizing = "border-box";
-  div.id = "asciinema-element";
+  div.className = "asciinema-element";
 
   var url = "https://asciinema.org/a/" + asciinema_id + "/embed";
   var ifrm = document.createElement("iframe");
   ifrm.setAttribute("src", url);
-  ifrm.style.left = div.style.left;
-  ifrm.style.top = div.style.top;
   ifrm.style.width = "100%";
   ifrm.style.height = "100%";
+  ifrm.style.border =  "5px";
+  ifrm.style.verticalAlign = "middle";
 
   div.appendChild(ifrm);
 
   // Add a reference to the new div
   el._overlay_term = div;
+  el.style.background = "#000";
 
   document.querySelector(".punch-viewer-svgpage").append(div);
 }
