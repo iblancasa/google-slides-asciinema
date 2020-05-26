@@ -40,10 +40,14 @@ function addOverlay(el, asciinema_id) {
   div.id = "asciinema-element";
 
   var url = "https://asciinema.org/a/" + asciinema_id + "/embed";
-  div.innerHTML =
-    '<iframe style="border:0;" scrolling="yes" src="' +
-    url +
-    '" width="100%" height="95%"></iframe>';
+  var ifrm = document.createElement("iframe");
+  ifrm.setAttribute("src", url);
+  ifrm.style.left = div.style.left;
+  ifrm.style.top = div.style.top;
+  ifrm.style.width = "100%";
+  ifrm.style.height = "100%";
+
+  div.appendChild(ifrm);
 
   // Add a reference to the new div
   el._overlay_term = div;
