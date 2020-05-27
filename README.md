@@ -1,4 +1,6 @@
 # Google Slides asciinema
+<a href="https://chrome.google.com/webstore/detail/google-slides-asciinema/lbaccocfalidoaeacbpabonnljdndmdd"><img src="https://developer.chrome.com/webstore/images/ChromeWebStore_Badge_v2_340x96.png"/></a>
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 <div>
