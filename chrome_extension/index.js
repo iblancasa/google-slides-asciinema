@@ -21,8 +21,11 @@
  * Replace the figury by the iframe.
  * @param   {object}    el  The element where the iframe will be inserted
  * @param   {string}    ascininema_id ID of the asciinema animation
+ * @param   {string}    list of parameters with the following format name=value&
+
+ *                      name=value&name=value...
  */
-function addOverlay(el, asciinema_id) {
+function addOverlay(el, asciinema_id, asciinema_flags) {
   var bbox = el.getBBox(); // The box
   var div = document.createElement("div");
   var svg = document.querySelector(".punch-viewer-svgpage-svgcontainer > svg");
@@ -34,11 +37,14 @@ function addOverlay(el, asciinema_id) {
   div.style.height = (bbox.height / svg.viewBox.baseVal.height) * 100 + "%";
   div.style.position = "absolute";
   // Change the aspect
-  div.style.background = "rgba(0,0,0,0.6)";
+  // I changed the background to transparent. This makes the terminal more
+  // consistent with any style or color schema used in the presentation.
+  // div.style.background = "rgba(0,0,0,0.6)";
+  div.style.background = "transparent"
   div.style.boxSizing = "border-box";
   div.className = "asciinema-element";
 
-  var url = "https://asciinema.org/a/" + asciinema_id + "/embed";
+  var url = "https://asciinema.org/a/" + asciinema_id + "/embed" + "?" + asciinema_flags ;
   var ifrm = document.createElement("iframe");
   ifrm.setAttribute("src", url);
   ifrm.style.width = "100%";
@@ -74,12 +80,21 @@ function scanListener() {
     }
 
     // Parse the asciinema link
-    var asciinema_canvas = term
+    // First we split the url to get the parameters out of the url
+    var asciinema_url_data = term
       .getAttribute("xlink:href")
+      .split("?");
+
+   // Now we process the url to check if it follows the expected format
+   var asciinema_canvas = asciinema_url_data[0]
       .match("https://asciinema.org/a/(.+)$");
+
+    // If the parse succeded
     if (asciinema_canvas) {
       var asciinema_id = asciinema_canvas[1];
-      addOverlay(term, asciinema_id);
+      asciinema_url_data.shift();
+      var asciinema_flags = asciinema_url_data.join("&");
+      addOverlay(term, asciinema_id,asciinema_flags);
     } else {
       term._skiip_term = true; // No asciinema to reproduce
     }
