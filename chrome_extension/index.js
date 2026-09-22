@@ -17,81 +17,180 @@
  * under the License.
  */
 
-/**
- * Replace the figury by the iframe.
- * @param   {object}    el  The element where the iframe will be inserted
- * @param   {string}    ascininema_id ID of the asciinema animation
- */
-function addOverlay(el, asciinema_id) {
-  var bbox = el.getBBox(); // The box
-  var div = document.createElement("div");
-  var svg = document.querySelector(".punch-viewer-svgpage-svgcontainer > svg");
+(function () {
+  "use strict";
 
-  // Position for the new div
-  div.style.left = (bbox.x / svg.viewBox.baseVal.width) * 100 + "%";
-  div.style.top = (bbox.y / svg.viewBox.baseVal.height) * 100 + "%";
-  div.style.width = (bbox.width / svg.viewBox.baseVal.width) * 100 + "%";
-  div.style.height = (bbox.height / svg.viewBox.baseVal.height) * 100 + "%";
-  div.style.position = "absolute";
-  // Change the aspect
-  div.style.background = "rgba(0,0,0,0.6)";
-  div.style.boxSizing = "border-box";
-  div.className = "asciinema-element";
+  var overlays = new Map();
+  var scanPending = false;
+  var trackingFrame = null;
+  var ASCIINEMA_URL =
+    /^https?:\/\/(?:www\.)?asciinema\.org\/a\/([A-Za-z0-9_-]+)(?:[/?#].*)?$/i;
 
-  var url = "https://asciinema.org/a/" + asciinema_id + "/embed";
-  var ifrm = document.createElement("iframe");
-  ifrm.setAttribute("src", url);
-  ifrm.style.width = "100%";
-  ifrm.style.height = "100%";
-  ifrm.style.border =  "5px";
-  ifrm.style.verticalAlign = "middle";
+  function linkUrl(element) {
+    var href =
+      element.getAttribute("href") ||
+      element.getAttribute("xlink:href") ||
+      (element.href && element.href.baseVal) ||
+      "";
 
-  div.appendChild(ifrm);
+    try {
+      return new URL(href, document.baseURI).href;
+    } catch (_error) {
+      return href;
+    }
+  }
 
-  // Add a reference to the new div
-  el._overlay_term = div;
-  el.style.background = "#000";
+  function linkBounds(element) {
+    var rect = element.getBoundingClientRect();
+    if (rect.width > 1 && rect.height > 1) {
+      return rect;
+    }
 
-  document.querySelector(".punch-viewer-svgpage").append(div);
-}
+    // Some SVG <a> elements report an empty client rect. Transform their SVG
+    // bounding box into viewport coordinates as a fallback.
+    try {
+      var box = element.getBBox();
+      var matrix = element.getScreenCTM();
+      if (!matrix) {
+        return rect;
+      }
 
-/**
- * Search for a target figure and parse the ID.
- */
-function scanListener() {
-  // Search all the squares that have a link
-  var terms = document.querySelectorAll(".punch-viewer-svgpage a");
+      var points = [
+        new DOMPoint(box.x, box.y).matrixTransform(matrix),
+        new DOMPoint(box.x + box.width, box.y).matrixTransform(matrix),
+        new DOMPoint(box.x, box.y + box.height).matrixTransform(matrix),
+        new DOMPoint(box.x + box.width, box.y + box.height).matrixTransform(
+          matrix
+        ),
+      ];
+      var xs = points.map(function (point) {
+        return point.x;
+      });
+      var ys = points.map(function (point) {
+        return point.y;
+      });
+      var left = Math.min.apply(Math, xs);
+      var top = Math.min.apply(Math, ys);
 
-  // For each possible terminal
-  terms.forEach(function (term) {
-    if (term._skip_term) {
-      // No asciinema to add
+      return {
+        left: left,
+        top: top,
+        right: Math.max.apply(Math, xs),
+        bottom: Math.max.apply(Math, ys),
+        width: Math.max.apply(Math, xs) - left,
+        height: Math.max.apply(Math, ys) - top,
+      };
+    } catch (_error) {
+      return rect;
+    }
+  }
+
+  function positionOverlay(element, overlay) {
+    var rect = linkBounds(element);
+    var visible =
+      element.isConnected &&
+      rect.width > 1 &&
+      rect.height > 1 &&
+      rect.right > 0 &&
+      rect.bottom > 0 &&
+      rect.left < window.innerWidth &&
+      rect.top < window.innerHeight;
+
+    overlay.hidden = !visible;
+    if (!visible) {
       return;
     }
-    if (term._overlay_term && document.body.contains(term._overlay_term)) {
-      // asciinema was drawn
-      return;
+
+    overlay.style.left = rect.left + "px";
+    overlay.style.top = rect.top + "px";
+    overlay.style.width = rect.width + "px";
+    overlay.style.height = rect.height + "px";
+  }
+
+  function trackOverlays() {
+    trackingFrame = null;
+
+    overlays.forEach(function (overlay, element) {
+      if (!element.isConnected) {
+        overlay.remove();
+        overlays.delete(element);
+        return;
+      }
+      positionOverlay(element, overlay);
+    });
+
+    if (overlays.size) {
+      trackingFrame = requestAnimationFrame(trackOverlays);
     }
+  }
 
-    // Parse the asciinema link
-    var asciinema_canvas = term
-      .getAttribute("xlink:href")
-      .match("https://asciinema.org/a/(.+)$");
-    if (asciinema_canvas) {
-      var asciinema_id = asciinema_canvas[1];
-      addOverlay(term, asciinema_id);
-    } else {
-      term._skiip_term = true; // No asciinema to reproduce
+  function startTracking() {
+    if (trackingFrame === null) {
+      trackingFrame = requestAnimationFrame(trackOverlays);
     }
-  });
-}
+  }
 
-/* *
- * Setup the listener. It'll check all the time to look for new "targets".
- */
-function setupListener() {
-  setInterval(scanListener, 100);
-  console.log("setupListener", document.URL, document.body);
-}
+  function addOverlay(element, asciinemaId) {
+    var overlay = document.createElement("div");
+    overlay.className = "asciinema-element";
+    overlay.style.position = "fixed";
+    overlay.style.zIndex = "10";
+    overlay.style.background = "#000";
+    overlay.style.boxSizing = "border-box";
+    overlay.style.overflow = "hidden";
 
-setupListener();
+    var iframe = document.createElement("iframe");
+    // This is the iframe URL generated by asciinema.org's documented
+    // recording-specific /a/{id}.js embed widget.
+    iframe.src = "https://asciinema.org/a/" + asciinemaId + "/iframe";
+    iframe.title = "Asciinema recording " + asciinemaId;
+    iframe.allow = "fullscreen";
+    iframe.style.display = "block";
+    iframe.style.width = "100%";
+    iframe.style.height = "100%";
+    iframe.style.border = "0";
+
+    overlay.appendChild(iframe);
+    document.body.appendChild(overlay);
+    overlays.set(element, overlay);
+    positionOverlay(element, overlay);
+    startTracking();
+  }
+
+  function scan() {
+    scanPending = false;
+
+    // Slides has changed its page-container classes over time. The linked
+    // objects in presentation/preview mode are still SVG anchors, so scan the
+    // rendered SVG rather than depending on a private Google class name.
+    document.querySelectorAll("svg a").forEach(function (element) {
+      if (overlays.has(element)) {
+        return;
+      }
+
+      var match = linkUrl(element).match(ASCIINEMA_URL);
+      if (match) {
+        addOverlay(element, match[1]);
+      }
+    });
+  }
+
+  function scheduleScan() {
+    if (!scanPending) {
+      scanPending = true;
+      requestAnimationFrame(scan);
+    }
+  }
+
+  function setupListener() {
+    scan();
+    new MutationObserver(scheduleScan).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["href", "xlink:href"],
+    });
+  }
+
+  setupListener();
+})();
